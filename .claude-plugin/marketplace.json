@@ -1,0 +1,13 @@
+{
+  "name": "flutter-clean-riverpod-skills",
+  "owner": {
+    "name": "Ethiel"
+  },
+  "plugins": [
+    {
+      "name": "flutter-clean-riverpod-skills",
+      "source": "./",
+      "description": "Feature-first Clean Architecture, Result-based errors and SDK contracts for Flutter + Riverpod 3."
+    }
+  ]
+}
