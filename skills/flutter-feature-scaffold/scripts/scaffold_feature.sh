@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Scaffold a feature-first Clean Architecture feature (data/domain/presentation).
+# Scaffold a feature-first Clean Architecture feature
+# (data / domain / di / presentation).
 #
 # Usage (from the Flutter project root):
 #   bash scaffold_feature.sh <feature_snake_case> [--entity PascalName] [--package pkg_name]
@@ -12,6 +13,8 @@
 #   lib/core/network/api_client.dart                 (flutter-sdk-contracts)
 #   lib/core/network/remote_data_source_guard.dart   (flutter-result-errors)
 #   lib/core/network/network_providers.dart          (exposes `apiClientProvider`)
+#
+# Then run `check_boundaries.sh` (same folder) to verify the layer rules.
 set -euo pipefail
 
 usage() {
@@ -93,10 +96,16 @@ keep_dir() {
 }
 
 # ---------------------------------------------------------------- barrels
+# The public surface of a feature: domain, its providers, its UI.
+# `data/` is deliberately NOT exported: other features must not reach it.
 write_file "$FEATURE.dart" <<'EOF'
-export 'data/data.dart';
+export 'di/di.dart';
 export 'domain/domain.dart';
 export 'presentation/presentation.dart';
+EOF
+
+write_file "di/di.dart" <<'EOF'
+export '__s___providers.dart';
 EOF
 
 write_file "domain/domain.dart" <<'EOF'
@@ -209,10 +218,8 @@ abstract final class __E__Endpoints {
 EOF
 
 write_file "data/datasources/__s___remote_data_source.dart" <<'EOF'
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:__PKG__/core/errors/errors.dart';
 import 'package:__PKG__/core/network/api_client.dart';
-import 'package:__PKG__/core/network/network_providers.dart';
 import 'package:__PKG__/core/network/remote_data_source_guard.dart';
 import 'package:__PKG__/features/__FEATURE__/data/datasources/__s___endpoints.dart';
 import 'package:__PKG__/features/__FEATURE__/data/models/models.dart';
@@ -241,14 +248,10 @@ class __E__RemoteDataSourceImpl
     });
   }
 }
-
-final __e__RemoteDataSourceProvider = Provider<__E__RemoteDataSource>((ref) {
-  return __E__RemoteDataSourceImpl(ref.watch(apiClientProvider));
-});
+// No Riverpod here: wiring lives in di/.
 EOF
 
 write_file "data/repositories/__s___repository_impl.dart" <<'EOF'
-import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:__PKG__/core/errors/errors.dart';
 import 'package:__PKG__/features/__FEATURE__/data/datasources/datasources.dart';
 import 'package:__PKG__/features/__FEATURE__/domain/domain.dart';
@@ -265,8 +268,24 @@ class __E__RepositoryImpl implements __E__Repository {
     return result.map((models) => models.map((m) => m.toEntity()).toList());
   }
 }
+// No Riverpod here: wiring lives in di/.
+EOF
 
-/// Exposes the contract, never the implementation.
+# ---------------------------------------------------------------- di
+# The only place that sees data/ and domain/ together. Presentation imports
+# this file, never data/.
+write_file "di/__s___providers.dart" <<'EOF'
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:__PKG__/core/network/network_providers.dart';
+import 'package:__PKG__/features/__FEATURE__/data/datasources/datasources.dart';
+import 'package:__PKG__/features/__FEATURE__/data/repositories/repositories.dart';
+import 'package:__PKG__/features/__FEATURE__/domain/domain.dart';
+
+final __e__RemoteDataSourceProvider = Provider<__E__RemoteDataSource>(
+  (ref) => __E__RemoteDataSourceImpl(ref.watch(apiClientProvider)),
+);
+
+/// Exposes the CONTRACT, never the implementation. Tests override this.
 final __e__RepositoryProvider = Provider<__E__Repository>(
   (ref) => __E__RepositoryImpl(ref.watch(__e__RemoteDataSourceProvider)),
 );
@@ -275,7 +294,7 @@ EOF
 # ---------------------------------------------------------------- presentation
 write_file "presentation/providers/__s___provider.dart" <<'EOF'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:__PKG__/features/__FEATURE__/data/repositories/repositories.dart';
+import 'package:__PKG__/features/__FEATURE__/di/di.dart';
 import 'package:__PKG__/features/__FEATURE__/domain/domain.dart';
 
 /// Store for the __FEATURE__ screen.

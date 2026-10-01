@@ -29,7 +29,7 @@ apply almost unchanged; `flutter-feature-scaffold` does not.
 
 | Skill | Use it when |
 |---|---|
-| [`flutter-feature-scaffold`](skills/flutter-feature-scaffold) | Adding a feature, deciding where a file belongs, reviewing layer dependencies. Includes a scaffold script. |
+| [`flutter-feature-scaffold`](skills/flutter-feature-scaffold) | Adding a feature, deciding where a file belongs, reviewing layer dependencies. Includes a scaffold script and a boundary checker for CI. |
 | [`flutter-result-errors`](skills/flutter-result-errors) | Writing data sources, repositories or providers that can fail. Sealed `AppFailure`, one catch boundary, how UI folds failures. |
 | [`flutter-sdk-contracts`](skills/flutter-sdk-contracts) | Touching Firebase, Sentry, PostHog, Dio, storage or any plugin. Contracts, adapters, no-ops, recording fakes. |
 
@@ -62,8 +62,24 @@ cd your_flutter_project
 bash path/to/skills/flutter-feature-scaffold/scripts/scaffold_feature.sh favorites --entity Favorite
 ```
 
-It generates the data / domain / presentation stubs and barrels, and never
-overwrites existing files.
+It generates the data / domain / di / presentation stubs and barrels, and never
+overwrites existing files. Then verify the layer rules (plain `grep`, ideal for CI):
+
+```bash
+bash path/to/skills/flutter-feature-scaffold/scripts/check_boundaries.sh
+```
+
+## The one rule worth remembering
+
+```text
+presentation ──▶ di ──▶ data
+      │           │       │
+      └──────▶ domain ◀───┘
+```
+
+Presentation never imports `data/`. A per-feature `di/` file wires the
+repository and exposes its **contract**, so `data/` stays free of Riverpod and
+the rule has no exceptions to erode.
 
 ## Recommended `pubspec.yaml` dependencies
 

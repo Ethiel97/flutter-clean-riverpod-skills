@@ -18,11 +18,13 @@ lib/
 └── l10n/
 
 features/<feature>/
-├── <feature>.dart            barrel: exports data, domain, presentation
-├── data/
+├── <feature>.dart            barrel: exports domain, di, presentation (NOT data)
+├── data/                     no Riverpod, no Flutter widgets
 │   ├── datasources/          <x>_remote_data_source.dart, <x>_endpoints.dart
 │   ├── models/               JSON-aware classes (fromJson / toEntity)
 │   └── repositories/         <x>_repository_impl.dart
+├── di/
+│   └── <feature>_providers.dart   dataSource + repository providers
 ├── domain/
 │   ├── entities/             immutable value classes (Equatable)
 │   ├── repositories/         abstract interface class contracts
@@ -42,21 +44,31 @@ across folders.
 ## Dependency direction
 
 ```text
-presentation ──▶ domain ◀── data
+presentation ──▶ di ──▶ data
+      │           │       │
+      └──────▶ domain ◀───┘
 ```
 
 - **Domain** imports nothing from Flutter, Dio, Firebase, Riverpod or any
   platform SDK. Plain Dart + `equatable`.
 - **Data** implements domain contracts. It is the only layer that knows JSON,
-  endpoints and the `ApiClient`.
-- **Presentation** talks to repositories (or use cases) through domain
-  contracts and never calls an `ApiClient`, parses JSON or touches SDKs.
-  The one allowed reach into `data/` is importing the **repository provider**
-  (declared beside the impl, typed as the contract) to `ref.watch` it. Never
-  import models, data sources or endpoints from presentation.
-- Between features, depend on the other feature's **domain** only. If two
-  features need the same model, promote it to `core/` or a shared domain
-  module instead of reaching into another feature's `data/`.
+  endpoints and the `ApiClient`. It does **not** import Riverpod: wiring is
+  not its job, so it stays testable in plain Dart.
+- **`di/`** is the composition point: the only place that sees `data/` and
+  `domain/` together. It builds the data source and repository and exposes
+  the repository as its **contract** type (`Provider<FavoriteRepository>`).
+- **Presentation** imports `domain/` and `di/`, **never `data/`**. It does not
+  call an `ApiClient`, parse JSON or touch SDKs.
+- Between features, depend on the other feature's **domain** (or `di/`) only.
+  If two features need the same model, promote it to `core/` instead of
+  reaching into another feature's `data/` or `presentation/`.
+
+Why `di/` and not "a provider next to the impl": a provider in `data/` forces
+presentation to import `data/` just to `ref.watch` it, and the rule
+"presentation never imports data" gains an exception that people stretch
+(first the provider, then "just this one model"). A dedicated file keeps the
+rule absolute, so a script can check it. It also keeps `data/` free of
+Riverpod.
 
 Call chain: `Widget → (Async)Notifier → Repository contract → RepositoryImpl
 → RemoteDataSource → ApiClient`. Never skip a layer.
@@ -80,11 +92,31 @@ path-building static methods, so URLs are not string literals in data sources.
 
 **Remote data source** — `abstract interface class` + `Impl` that
 `with RemoteDataSourceGuard`, takes an `ApiClient`, returns `AsyncResult<Model>`.
-Its provider sits at the bottom of the file.
+No provider in this file.
 
 **Repository impl** — takes the data source, converts models → entities with
-`result.map(...)`, passes failures through. Its provider sits at the bottom
-of the file and returns the **contract** type.
+`result.map(...)`, passes failures through. No provider in this file.
+
+**`di/<feature>_providers.dart`** — the providers for the two above:
+
+```dart
+final favoriteRemoteDataSourceProvider = Provider<FavoriteRemoteDataSource>(
+  (ref) => FavoriteRemoteDataSourceImpl(ref.watch(apiClientProvider)),
+);
+
+/// Exposes the CONTRACT, never the implementation. Tests override this.
+final favoriteRepositoryProvider = Provider<FavoriteRepository>(
+  (ref) => FavoriteRepositoryImpl(ref.watch(favoriteRemoteDataSourceProvider)),
+);
+```
+
+In a test, override the contract and `data/` is never touched:
+
+```dart
+ProviderContainer(overrides: [
+  favoriteRepositoryProvider.overrideWithValue(FakeFavoriteRepository()),
+]);
+```
 
 **Providers (presentation)** — one responsibility each. Pick by role:
 
@@ -112,19 +144,21 @@ widgets only `watch` declarative state.
 2. Repository contract (`domain/repositories`)
 3. Model with `toEntity` (`data/models`) — then `dart run build_runner build`
 4. Endpoints class (`data/datasources`)
-5. Remote data source + provider
-6. Repository impl + provider
-7. Presentation provider (`AsyncNotifier` whose `build` reads the repository
-   and calls `getOrThrow()`)
-8. Submission notifier for each user action
-9. `<Feature>Listeners` widget
-10. Page + widgets, registered in the router
-11. Tests: data source with a fake `ApiClient`, repository mapping, notifier
-    with overridden providers, widget test with fakes
+5. Remote data source
+6. Repository impl
+7. `di/` providers (data source + repository, exposed as the contract)
+8. Presentation provider (`AsyncNotifier` whose `build` reads the repository
+   through `di/` and calls `getOrThrow()`)
+9. Submission notifier for each user action
+10. `<Feature>Listeners` widget
+11. Page + widgets, registered in the router
+12. Tests: data source with a fake `ApiClient`, repository mapping, notifier
+    with the repository contract overridden, widget test with fakes
+13. Run `scripts/check_boundaries.sh`
 
 ## Scaffold script
 
-`scripts/scaffold_feature.sh` creates steps 1–7 as compilable stubs with all
+`scripts/scaffold_feature.sh` creates steps 1–8 as compilable stubs with all
 barrels, and never overwrites existing files:
 
 ```bash
@@ -138,12 +172,32 @@ bash <path-to-skill>/scripts/scaffold_feature.sh favorites --entity Favorite
 
 Afterwards: add fields to the entity and model, fill the endpoints, run
 `dart run build_runner build` and `dart fix --apply` (the stubs' import order
-is not lint-sorted), then continue from step 8.
+is not lint-sorted), then continue from step 9.
+
+## Checking the boundaries
+
+`scripts/check_boundaries.sh` is plain `grep`, so it needs no Dart toolchain
+and fits in any CI step. Run it from the project root:
+
+```bash
+bash <path-to-skill>/scripts/check_boundaries.sh        # default: lib/features
+```
+
+It exits 1 and lists every violation of these rules, or prints `OK`:
+
+1. `presentation/` never imports `data/`
+2. `domain/` imports no framework or SDK, nor `data/`, `presentation/`, `di/`
+3. `data/` imports neither `presentation/`, `di/` nor Riverpod
+4. A feature never imports another feature's `data/` or `presentation/`
+5. Feature code imports no third-party SDK directly
+
+Run it after every scaffold, and in CI so the boundary cannot erode.
 
 ## Review checklist
 
+- [ ] `check_boundaries.sh` prints `OK`
 - [ ] `domain/` has no imports from `flutter`, `dio`, `flutter_riverpod`, SDKs
-- [ ] Presentation imports from `data/` only the repository provider (no models, data sources, endpoints)
+- [ ] `di/` exposes the repository as its contract type, not the `Impl`
 - [ ] Repositories return entities, not models; no thrown exceptions
 - [ ] Each folder has a barrel; cross-folder imports use barrels
 - [ ] Providers are explicit (no codegen) and each has one job
