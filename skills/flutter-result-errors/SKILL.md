@@ -53,11 +53,11 @@ class WordRemoteDataSourceImpl
   final ApiClient _apiClient;
 
   @override
-  AsyncResult<TodayWordModel> fetchTodayWord() {
+  AsyncResult<ProfileModel> fetchProfile() {
     return guard(() async {
       final response = await _apiClient.get(WordEndpoints.today);
       final data = response['data'] as Map<String, dynamic>;
-      return TodayWordModel.fromJson(data);
+      return ProfileModel.fromJson(data);
     });
   }
 }
@@ -82,8 +82,8 @@ The repository only converts; it passes failures through untouched.
 
 ```dart
 @override
-AsyncResult<TodayWord> getTodayWord() async {
-  final result = await _remote.fetchTodayWord();
+AsyncResult<Profile> getProfile() async {
+  final result = await _remote.fetchProfile();
   return result.map((model) => model.toEntity());
 }
 
@@ -170,7 +170,7 @@ Fake the `ApiClient`, throw an `ApiException`, assert the `Result`:
 ```dart
 test('maps 401 to AuthFailure', () async {
   when(() => api.get(any())).thenThrow(const ApiResponseException(statusCode: 401));
-  final result = await dataSource.fetchTodayWord();
+  final result = await dataSource.fetchProfile();
   expect(result.exceptionOrNull(), isA<AuthFailure>());
 });
 ```
