@@ -46,16 +46,16 @@ to avoid a name clash with the app typedef.
 ## Writing a data source
 
 ```dart
-class WordRemoteDataSourceImpl
+class ProfileRemoteDataSourceImpl
     with RemoteDataSourceGuard
-    implements WordRemoteDataSource {
-  WordRemoteDataSourceImpl(this._apiClient);
+    implements ProfileRemoteDataSource {
+  ProfileRemoteDataSourceImpl(this._apiClient);
   final ApiClient _apiClient;
 
   @override
   AsyncResult<ProfileModel> fetchProfile() {
     return guard(() async {
-      final response = await _apiClient.get(WordEndpoints.today);
+      final response = await _apiClient.get(ProfileEndpoints.me);
       final data = response['data'] as Map<String, dynamic>;
       return ProfileModel.fromJson(data);
     });
