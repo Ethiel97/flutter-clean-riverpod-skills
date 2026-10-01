@@ -23,7 +23,10 @@ These skills assume a specific stack. If yours differs, they will fight you.
 | Models | `json_serializable` + `equatable` |
 
 Not using Riverpod? `flutter-result-errors` and `flutter-sdk-contracts` still
-apply almost unchanged; `flutter-feature-scaffold` does not.
+apply almost unchanged; the other four do not.
+
+The skills reference each other (for example `flutter-testing` points to the
+recording fakes in `flutter-sdk-contracts`), so install the whole set.
 
 ## Skills
 
@@ -32,6 +35,9 @@ apply almost unchanged; `flutter-feature-scaffold` does not.
 | [`flutter-feature-scaffold`](skills/flutter-feature-scaffold) | Adding a feature, deciding where a file belongs, reviewing layer dependencies. Includes a scaffold script and a boundary checker for CI. |
 | [`flutter-result-errors`](skills/flutter-result-errors) | Writing data sources, repositories or providers that can fail. Sealed `AppFailure`, one catch boundary, how UI folds failures. |
 | [`flutter-sdk-contracts`](skills/flutter-sdk-contracts) | Touching Firebase, Sentry, PostHog, Dio, storage or any plugin. Contracts, adapters, no-ops, recording fakes. |
+| [`flutter-riverpod3`](skills/flutter-riverpod3) | Choosing provider types, writing notifiers, `watch` / `read` / `listen` / `select`, disposal, `ref.mounted`, and Riverpod 3's automatic retry. |
+| [`flutter-ui-side-effects`](skills/flutter-ui-side-effects) | Navigation, snackbars, dialogs or analytics reacting to state. `<Feature>Listeners` widgets, submission state, failure-to-copy mapping. |
+| [`flutter-testing`](skills/flutter-testing) | Testing data sources, notifiers, widgets, listeners and goldens through contract overrides; mock vs fake. |
 
 Each skill ships copy-ready Dart under `assets/`. Replace `your_app` with your
 package name.
