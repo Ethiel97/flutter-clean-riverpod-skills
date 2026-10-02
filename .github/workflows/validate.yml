@@ -1,0 +1,14 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test (metadata, references, scaffold, boundary checker)
+        run: bash tests/smoke_test.sh

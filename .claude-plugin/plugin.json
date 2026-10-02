@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Opinionated agent skills for Flutter apps built with feature-first Clean Architecture, Riverpod 3 (no codegen), Result-based error handling and SDKs wrapped behind application-owned contracts.",
   "author": {
-    "name": "Ethiel"
+    "name": "Ethiel",
+    "url": "https://github.com/Ethiel97"
   },
   "license": "MIT",
   "keywords": [
@@ -13,5 +14,7 @@
     "clean-architecture",
     "result",
     "ports-and-adapters"
-  ]
+  ],
+  "homepage": "https://github.com/Ethiel97/flutter-clean-riverpod-skills",
+  "repository": "https://github.com/Ethiel97/flutter-clean-riverpod-skills"
 }
